@@ -1,0 +1,115 @@
+# Podman Compose - lokalni developer environment
+# Koristi se s: podman-compose up --build -d
+# Tema: DO188 - Introduction to Containers with Podman
+
+services:
+
+  # ── Infrastruktura ────────────────────────────────────────────────────────
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-ticketing}
+      POSTGRES_USER:     ${POSTGRES_USER:-ticketing_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local}
+    volumes:
+      # Inicijalizacijski SQL - montiran read-only
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro,Z
+      # Named volume za perzistentnost podataka
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ticketing_user} -d ${POSTGRES_DB:-ticketing}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Aplikacijski servisi ──────────────────────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Containerfile
+    container_name: api
+    restart: unless-stopped
+    # Sve env varijable u jednom .env fajlu (bez hardkodiranih lozinki u yaml-u)
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST:    redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-3000}:3000"
+    # :Z = SELinux relabeling - obavezno na RHEL/Fedora/podman
+    volumes:
+      - ./api/src:/app/src:ro,Z
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/healthz',r=>process.exit(r.statusCode===200?0:1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Containerfile
+    container_name: frontend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # U lokalnom okruženju frontend dohvaća API direktno s hosta
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:3000}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    volumes:
+      - ./frontend/src:/app/src:ro,Z
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/healthz',r=>process.exit(r.statusCode===200?0:1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Containerfile
+    container_name: worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST:    redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./worker/src:/app/src:ro,Z
+
+# Named volumes - Podman automatski kreira
+volumes:
+  postgres_data:
