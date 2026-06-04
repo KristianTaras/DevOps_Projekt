@@ -56,6 +56,8 @@ spec:
           ports:
             - containerPort: 5432
           env:
+ 	    - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
@@ -73,7 +75,7 @@ spec:
                   key: POSTGRES_PASSWORD
           volumeMounts:
             - name: data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql/data/pgdata
             - name: initdb
               mountPath: /docker-entrypoint-initdb.d
           resources:
