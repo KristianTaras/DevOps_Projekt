@@ -26,27 +26,27 @@ spec:
       serviceAccountName: ticketing-sa
       containers:
         - name: worker
-          image: quay.io/ktarasrha/ticketing-worker:1.0.0
+          image: quay.io/TVOJ_USERNAME/ticketing-worker:1.0.0
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
                 name: ticketing-config
           env:
-            - name: ticketing_user
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: ticketing-secret
-                  key: ticketing_user
-            - name: TicketingUser
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: ticketing-secret
-                  key: TicketingUser
-            - name: ticketing
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
                   name: ticketing-secret
-                  key: ticketing
+                  key: POSTGRES_DB
           resources:
             requests:
               cpu: "50m"

@@ -26,7 +26,7 @@ spec:
       serviceAccountName: ticketing-sa
       containers:
         - name: frontend
-          image: quay.io/ktarasrha/ticketing-frontend:1.0.0
+          image: quay.io/TVOJ_USERNAME/ticketing-frontend:1.0.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
