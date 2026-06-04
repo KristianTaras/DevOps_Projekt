@@ -1,0 +1,40 @@
+name: CI/CD – Build, Scan & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: quay.io
+  IMAGE_PREFIX: ${{ secrets.QUAY_USERNAME }}/ticketing
+
+jobs:
+  build-and-scan:
+    name: Build & Scan – ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, frontend, worker]
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildah
+        uses: redhat-actions/buildah-build@v2
+        id: build
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: ${{ github.sha }} latest
+          context: ./${{ matrix.service }}
+          containerfiles: ./${{ matrix.service }}/Containerfile
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAG
