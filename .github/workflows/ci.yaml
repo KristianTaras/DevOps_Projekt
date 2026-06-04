@@ -1,4 +1,4 @@
-name: CI/CD – Build, Scan & Deploy
+name: CI/CD Build and Scan
 
 on:
   push:
@@ -6,35 +6,35 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  REGISTRY: quay.io
-  IMAGE_PREFIX: ${{ secrets.QUAY_USERNAME }}/ticketing
-
 jobs:
   build-and-scan:
-    name: Build & Scan – ${{ matrix.service }}
+    name: Build and Scan
     runs-on: ubuntu-latest
     strategy:
       matrix:
         service: [api, frontend, worker]
-    permissions:
-      contents: read
-      packages: write
-      security-events: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Buildah
-        uses: redhat-actions/buildah-build@v2
-        id: build
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
-          tags: ${{ github.sha }} latest
-          context: ./${{ matrix.service }}
-          containerfiles: ./${{ matrix.service }}/Containerfile
+      - name: Build image
+        run: |
+          docker build -t ticketing-${{ matrix.service }}:latest ./${{ matrix.service }} -f ./${{ matrix.service }}/Containerfile
 
-      - name: Trivy vulnerability scan
+      - name: Trivy scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAG
+          image-ref: ticketing-${{ matrix.service }}:latest
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Login to Quay.io
+        if: github.event_name != 'pull_request'
+        run: echo "${{ secrets.QUAY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_USERNAME }}" --password-stdin
+
+      - name: Push to Quay.io
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag ticketing-${{ matrix.service }}:latest quay.io/${{ secrets.QUAY_USERNAME }}/ticketing-${{ matrix.service }}:latest
+          docker push quay.io/${{ secrets.QUAY_USERNAME }}/ticketing-${{ matrix.service }}:latest
