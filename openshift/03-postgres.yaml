@@ -10,7 +10,6 @@ spec:
   resources:
     requests:
       storage: 1Gi
-
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -30,7 +29,6 @@ data:
     );
     CREATE INDEX IF NOT EXISTS idx_ticket_orders_created_at ON ticket_orders (created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ticket_orders_event_id   ON ticket_orders (event_id);
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -56,7 +54,7 @@ spec:
           ports:
             - containerPort: 5432
           env:
- 	    - name: PGDATA
+            - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_DB
               valueFrom:
@@ -75,7 +73,7 @@ spec:
                   key: POSTGRES_PASSWORD
           volumeMounts:
             - name: data
-              mountPath: /var/lib/postgresql/data/pgdata
+              mountPath: /var/lib/postgresql/data
             - name: initdb
               mountPath: /docker-entrypoint-initdb.d
           resources:
@@ -102,7 +100,6 @@ spec:
         - name: initdb
           configMap:
             name: postgres-initdb
-
 ---
 apiVersion: v1
 kind: Service
